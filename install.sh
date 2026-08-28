@@ -26,7 +26,7 @@ echo "Installed: ${SKILL_FILE}"
 echo
 echo "This skill only supplies routing instructions for Claude Code. It assumes an MCP"
 echo "server already exposes a preprocessing tool (path, task, focus, max_output_tokens"
-echo "-> structured JSON) backed by an Ollama-compatible model. If you don't have one"
-echo "configured yet, set that up before the skill has anything to route to."
+echo "-> structured JSON) backed by a local model. If you don't have one configured"
+echo "yet, set that up before the skill has anything to route to."
 echo
 echo "Restart Claude Code (or start a new session) to pick up the new skill."

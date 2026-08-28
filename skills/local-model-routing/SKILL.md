@@ -1,21 +1,22 @@
 ---
 name: local-model-routing
-description: Reduce coordinating-model context use by routing large, repetitive, or bounded low-risk text work through this project's read-only Ollama preprocessor, while retaining complex reasoning, edits, and final verification in the coordinating model.
+description: Reduce coordinating-model context use by routing large, repetitive, or bounded low-risk text work through this project's read-only local model preprocessor, while retaining complex reasoning, edits, and final verification in the coordinating model.
 ---
 
-# Ollama model routing
+# Local model routing
 
 Use deterministic tools first when they can answer exactly. Route by source size:
 
 - Below 15 KB: read directly with the coordinating model.
-- 15–50 KB: use Ollama only for substantially repetitive input or when its result can
-  replace a full read or reduce later reading to small explicit line ranges.
-- Above 50 KB: prefer Ollama when semantic compression can materially reduce what the
-  coordinating model reads.
+- 15–50 KB: use the local model only for substantially repetitive input or when its
+  result can replace a full read or reduce later reading to small explicit line ranges.
+- Above 50 KB: prefer the local model when semantic compression can materially reduce
+  what the coordinating model reads.
 
-Do not call Ollama first when the coordinating model will still need the complete
-source. Size thresholds may be ignored for more than 20 records needing semantic
-classification or deduplication that deterministic tools cannot perform reliably.
+Do not call the local model first when the coordinating model will still need the
+complete source. Size thresholds may be ignored for more than 20 records needing
+semantic classification or deduplication that deterministic tools cannot perform
+reliably.
 
 Size `max_output_tokens` to the task instead of leaving it at the tool default for
 everything: 600–800 for a single small bounded result (one-file summarize, dedupe on
@@ -58,11 +59,10 @@ advisory. Decide from the compact summary, grounded findings, uncertainty, and
 deterministic search evidence. Never skip a file that exact symbol references, errors,
 tests, or dependencies identify as relevant.
 
-The default `gpt-oss:120b-cloud` processes source content on Ollama Cloud. Keep
-Ollama read-only. Do not ask it to edit files, run commands, deploy, delete, or
-make security-sensitive decisions. Keep architecture, cross-file conclusions,
-security and authorization work, final code changes, and final review with the
-coordinating model.
+The local model processes source content on your own machine. Keep it read-only.
+Do not ask it to edit files, run commands, deploy, delete, or make security-sensitive
+decisions. Keep architecture, cross-file conclusions, security and authorization work,
+final code changes, and final review with the coordinating model.
 
 In a Claude environment that supports model-selectable subagents, a Haiku-class
 subagent may handle bounded repository exploration or simple code/test drafts. Give

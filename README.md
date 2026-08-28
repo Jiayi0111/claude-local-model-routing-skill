@@ -1,6 +1,6 @@
 # local-model-routing
 
-**A Claude Code skill that routes large, repetitive, or bounded text work to a local/cloud Ollama model first — so Claude only pays context for what actually matters.**
+**A Claude Code skill that routes large, repetitive, or bounded text work to a local model first — so Claude only pays context for what actually matters.**
 
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-6b4fbb)](https://github.com/anthropics/claude-code)
 [![Type](https://img.shields.io/badge/type-routing%20skill-blue)]()
@@ -23,13 +23,13 @@ curl -fsSL https://raw.githubusercontent.com/Jiayi0111/claude-local-model-routin
   -o ~/.claude/skills/local-model-routing/SKILL.md
 ```
 
-> **Requirement:** this skill only supplies the *routing logic*. It assumes an MCP server already exposes a preprocessing tool (path, task, focus, `max_output_tokens` in → structured JSON out) backed by an Ollama-compatible model. If you don't have one configured yet, set that up first — the skill has nothing to route to without it.
+> **Requirement:** this skill only supplies the *routing logic*. It assumes an MCP server already exposes a preprocessing tool (path, task, focus, `max_output_tokens` in → structured JSON out) backed by a local model. If you don't have one configured yet, set that up first — the skill has nothing to route to without it.
 
 ---
 
 ## Why
 
-Every large file Claude reads directly costs context — context that isn't available for reasoning, editing, or holding the rest of the conversation. Most of that content is either boilerplate, repetitive, or irrelevant to the actual question. This skill inserts a cheap triage step: a local/cloud model reads the full source and hands Claude a small, structured, verifiable result instead.
+Every large file Claude reads directly costs context — context that isn't available for reasoning, editing, or holding the rest of the conversation. Most of that content is either boilerplate, repetitive, or irrelevant to the actual question. This skill inserts a cheap triage step: a local model reads the full source and hands Claude a small, structured, verifiable result instead.
 
 Claude still does all the reasoning, all the edits, and all the verification. The local model only compresses — it never decides, never edits, never gets trusted blindly.
 
@@ -37,7 +37,7 @@ Claude still does all the reasoning, all the edits, and all the verification. Th
 
 | Feature | What it does |
 |---|---|
-| **Size-tiered routing** | Below 15 KB → direct read. 15–50 KB → Ollama only when clearly repetitive or compressible. Above 50 KB → Ollama by default. |
+| **Size-tiered routing** | Below 15 KB → direct read. 15–50 KB → local model only when clearly repetitive or compressible. Above 50 KB → local model by default. |
 | **8 narrow task types** | `summarize`, `inspect`, `classify`, `extract`, `dedupe`, `rewrite`, `summarize-diff`, `assess-value` — each shaped for one job instead of one generic "read this" prompt. |
 | **Adaptive output budget** | `max_output_tokens` scales with the task (600–800 for a quick dedupe, up to 2000 for a broad inspect) instead of one-size-fits-all. |
 | **Severity-focused findings** | Ask for "high/medium only" up front so low-value findings never make it into Claude's context to begin with. |
@@ -55,7 +55,7 @@ flowchart TD
     D -- "< 15 KB" --> E[Read directly]
     D -- "15–50 KB" --> F{Repetitive or<br/>compressible?}
     F -- no --> E
-    F -- yes --> G[Route to Ollama]
+    F -- yes --> G[Route to local model]
     D -- "> 50 KB" --> G
     G --> H[Structured result:<br/>summary / findings / classification]
     H --> I{Findings are<br/>high or medium severity?}
@@ -97,7 +97,7 @@ These numbers are illustrative, based on the routing logic's own assumptions —
 Everything above lives in one file: [`skills/local-model-routing/SKILL.md`](skills/local-model-routing/SKILL.md). Common tweaks:
 - Move the size thresholds if your typical files/tokens differ from the assumptions above.
 - Change the default severity focus for `inspect` / `summarize-diff` / `assess-value`.
-- Point it at a different backing model if you're not using Ollama.
+- Point it at whatever local model runtime you use.
 
 ## Contributing
 
