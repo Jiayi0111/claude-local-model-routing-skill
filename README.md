@@ -5,6 +5,8 @@
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-6b4fbb)](https://github.com/anthropics/claude-code)
 [![Type](https://img.shields.io/badge/type-routing%20skill-blue)]()
 
+**English | [简体中文](README.zh-CN.md)**
+
 ---
 
 ## Install
