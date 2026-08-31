@@ -27,6 +27,72 @@ curl -fsSL https://raw.githubusercontent.com/Jiayi0111/claude-local-model-routin
 
 > **前提条件:** 这个技能只提供*路由逻辑*本身。它假设你已经有一个 MCP server 提供了预处理工具(输入 path、task、focus、`max_output_tokens`,输出结构化 JSON),背后由某个本地模型支撑。如果还没配置好,请先搭建——否则这个技能没有可以路由的对象。
 
+### 没有本地模型？
+
+最快的路径是在自己的机器上跑 [Ollama](https://ollama.com)：
+
+```bash
+# 1. 安装 Ollama，再拉一个小的指令模型
+brew install ollama              # 或用 ollama.com 提供的安装包
+ollama pull qwen2.5-coder:7b     # 约 4-5 GB，足够 summarize/classify/extract 用
+
+# 2. 确认已经跑起来
+ollama list
+curl -s http://localhost:11434/api/tags
+```
+
+Ollama 本身不是 MCP server——它只是把模型通过本地 HTTP API 提供出来。你还需要在它前面架一个很薄的 MCP server，暴露一个符合本技能路由逻辑所依赖的契约的工具：
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `path` | 字符串，必填 | 待处理文件的绝对路径 |
+| `task` | 枚举，默认 `summarize` | `summarize` \| `classify` \| `inspect` \| `extract` \| `dedupe` \| `rewrite` \| `summarize-diff` \| `assess-value` |
+| `focus` | 字符串，可选 | 该任务的目标 / 字段 / 严重程度过滤条件 |
+| `max_output_tokens` | 整数，默认 1200(200–2000) | 输出预算 |
+
+一份最小的参考桥接实现(约 35 行 Python，`pip install mcp requests`)就足够先跑起来：
+
+```python
+import requests
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("local-llm")
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODEL = "qwen2.5-coder:7b"
+
+TASK_PROMPTS = {
+    "summarize": "Summarize the key facts, errors, and next actions.",
+    "inspect": "Map responsibilities, dependencies, risks, and locations.",
+    "classify": "Classify records into categories with counts.",
+    "extract": "Extract only facts/fields relevant to the focus.",
+    "dedupe": "Find exact and probable duplicate groups. Do not delete anything.",
+    "rewrite": "Produce a shorter, meaning-preserving version.",
+    "summarize-diff": "Summarize behavior changes, risks, and missing tests.",
+    "assess-value": "Say whether this file is worth reading: all, part, or none.",
+}
+
+@mcp.tool()
+def preprocess_large_input(path: str, task: str = "summarize", focus: str = "", max_output_tokens: int = 1200) -> str:
+    text = open(path, encoding="utf-8", errors="replace").read()
+    prompt = f"{TASK_PROMPTS[task]}\nFocus: {focus or 'none'}\n\n{text}"
+    resp = requests.post(OLLAMA_URL, json={
+        "model": MODEL, "prompt": prompt, "stream": False,
+        "options": {"num_predict": max_output_tokens},
+    })
+    return resp.json()["response"]
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+把它注册进 Claude Code：
+
+```bash
+claude mcp add local-llm -- python3 /path/to/bridge.py
+```
+
+> 如果你接的是 **Ollama Cloud** 而不是完全本地的模型，请求会离开你的机器——在把敏感内容路由过去之前，先核实自己的数据处理政策，和下面的[安全边界](#安全边界)是同一个道理。
+
 ---
 
 ## 为什么需要它

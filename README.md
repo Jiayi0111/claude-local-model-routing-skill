@@ -27,6 +27,72 @@ curl -fsSL https://raw.githubusercontent.com/Jiayi0111/claude-local-model-routin
 
 > **Requirement:** this skill only supplies the *routing logic*. It assumes an MCP server already exposes a preprocessing tool (path, task, focus, `max_output_tokens` in → structured JSON out) backed by a local model. If you don't have one configured yet, set that up first — the skill has nothing to route to without it.
 
+### Don't have a local model yet?
+
+The fastest path is [Ollama](https://ollama.com) running on your own machine:
+
+```bash
+# 1. install Ollama, then pull a small instruct model
+brew install ollama              # or the installer from ollama.com
+ollama pull qwen2.5-coder:7b     # ~4-5 GB, enough for summarize/classify/extract
+
+# 2. confirm it's up
+ollama list
+curl -s http://localhost:11434/api/tags
+```
+
+Ollama itself isn't an MCP server — it just serves models over a local HTTP API. You still need a thin MCP server in front of it exposing one tool that matches the contract this skill's routing logic is written against:
+
+| Param | Type | Notes |
+|---|---|---|
+| `path` | string, required | absolute path to the file to process |
+| `task` | enum, default `summarize` | `summarize` \| `classify` \| `inspect` \| `extract` \| `dedupe` \| `rewrite` \| `summarize-diff` \| `assess-value` |
+| `focus` | string, optional | target / fields / severity filter for the task |
+| `max_output_tokens` | int, default 1200 (200–2000) | output budget |
+
+A minimal reference bridge (~35 lines, Python — `pip install mcp requests`) is enough to get unblocked:
+
+```python
+import requests
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("local-llm")
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODEL = "qwen2.5-coder:7b"
+
+TASK_PROMPTS = {
+    "summarize": "Summarize the key facts, errors, and next actions.",
+    "inspect": "Map responsibilities, dependencies, risks, and locations.",
+    "classify": "Classify records into categories with counts.",
+    "extract": "Extract only facts/fields relevant to the focus.",
+    "dedupe": "Find exact and probable duplicate groups. Do not delete anything.",
+    "rewrite": "Produce a shorter, meaning-preserving version.",
+    "summarize-diff": "Summarize behavior changes, risks, and missing tests.",
+    "assess-value": "Say whether this file is worth reading: all, part, or none.",
+}
+
+@mcp.tool()
+def preprocess_large_input(path: str, task: str = "summarize", focus: str = "", max_output_tokens: int = 1200) -> str:
+    text = open(path, encoding="utf-8", errors="replace").read()
+    prompt = f"{TASK_PROMPTS[task]}\nFocus: {focus or 'none'}\n\n{text}"
+    resp = requests.post(OLLAMA_URL, json={
+        "model": MODEL, "prompt": prompt, "stream": False,
+        "options": {"num_predict": max_output_tokens},
+    })
+    return resp.json()["response"]
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+Register it with Claude Code:
+
+```bash
+claude mcp add local-llm -- python3 /path/to/bridge.py
+```
+
+> If you point this at **Ollama Cloud** instead of a fully local model, requests leave your machine — check your own data-handling policy before routing sensitive content there, same as the [Guardrails](#guardrails) below.
+
 ---
 
 ## Why
